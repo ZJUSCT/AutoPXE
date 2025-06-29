@@ -30,13 +30,13 @@ func NewServer() *RVServer {
 func (s *RVServer) Handle(ctx *tftp.Ctx) tftp.Ret {
 
 	switch ctx.Path {
-	case "vmlinuz-6.6.63":
+	case "rv/vmlinuz-6.6.63":
 		ctx.Resp.ReadFrom(bytes.NewReader(vmlinuz))
 		return tftp.RequestEnd
-	case "initrd.img-6.6.63":
+	case "rv/initrd.img-6.6.63":
 		ctx.Resp.ReadFrom(bytes.NewReader(initrd))
 		return tftp.RequestEnd
-	case "spacemit/6.6.63/k1-x_MUSE-Pi-Pro.dtb":
+	case "rv/spacemit/6.6.63/k1-x_MUSE-Pi-Pro.dtb":
 		ctx.Resp.ReadFrom(bytes.NewReader(dtb))
 		return tftp.RequestEnd
 	}
