@@ -6,6 +6,7 @@ import (
 
 	"github.com/mrhaoxx/AutoPXE/pxe"
 	"github.com/mrhaoxx/AutoPXE/pxe/ipxe"
+	"github.com/mrhaoxx/AutoPXE/rv"
 	"github.com/mrhaoxx/AutoPXE/tftp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -70,6 +71,9 @@ func main() {
 	}
 	ipxe := ipxe.NewServer()
 
+	rv := rv.NewServer()
+
+	server.Handlers = append(server.Handlers, rv)
 	server.Handlers = append(server.Handlers, ipxe)
 	server.Handlers = append(server.Handlers, &pxe)
 
