@@ -1,6 +1,0 @@
-#!ipxe
-
-prompt --key 0x02 --timeout 3000 Press Ctrl-B for the iPXE command line... && shell ||
-
-dhcp
-chain autopxe-${mac:hexraw}

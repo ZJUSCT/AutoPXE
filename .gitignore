@@ -1,3 +1,4 @@
-config.yaml
-AutoPXE
-.DS_Store
+.env
+images/*.qcow2
+images/*.img
+images/*.raw
