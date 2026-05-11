@@ -1,0 +1,4 @@
+.env
+images/*.qcow2
+images/*.img
+images/*.raw

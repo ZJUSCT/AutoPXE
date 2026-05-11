@@ -1,0 +1,7 @@
+{
+    "listen": ":6385",
+    "image_source": "http://192.168.100.1/images/test-rootfs.qcow2",
+    "image_type": "partition",
+    "disk_format": "qcow2",
+    "root_mb": 1000
+}
