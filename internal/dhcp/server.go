@@ -133,10 +133,12 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 		return
 	}
 
-	// Boot file selection — belt-and-suspenders: BOOTP siaddr/file fields plus
-	// options 66 / 67. The same set is sent on OFFER and ACK.
+	// Boot file selection. We only set boot fields when this looks like a
+	// PXE / iPXE client; "ordinary" DHCP clients (e.g. the booted IPA
+	// initramfs requesting an in-band IP, or any other non-PXE host on the
+	// provisioning network) get a plain DHCP lease with no boot fields so
+	// they can come up normally.
 	reply.ServerHostName = s.cfg.Listen.ParsedIP.String()
-	reply.UpdateOption(dhcpv4.OptTFTPServerName(s.cfg.Listen.ParsedIP.String()))
 
 	bootURL, bootFile, ok := s.selectBoot(arch, isIPXE, mac)
 	switch {
@@ -145,13 +147,15 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 		// chainload `boot.ipxe` from this URL.
 		reply.BootFileName = bootURL
 		reply.UpdateOption(dhcpv4.OptBootFileName(bootURL))
+		reply.UpdateOption(dhcpv4.OptTFTPServerName(s.cfg.Listen.ParsedIP.String()))
 	case !isIPXE && ok:
 		// Firmware DHCP: hand back the iPXE binary via TFTP.
 		reply.BootFileName = bootFile
 		reply.UpdateOption(dhcpv4.OptBootFileName(bootFile))
+		reply.UpdateOption(dhcpv4.OptTFTPServerName(s.cfg.Listen.ParsedIP.String()))
 	default:
-		s.logger.Warn("unsupported PXE arch, refusing boot", "mac", mac, "arch", arch.String())
-		return
+		// Non-PXE DHCP: just hand out the lease (IP / mask / gateway / DNS).
+		s.logger.Info("non-pxe lease only", "mac", mac, "arch", arch.String(), "ipxe", isIPXE)
 	}
 
 	if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
