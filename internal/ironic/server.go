@@ -14,19 +14,21 @@ import (
 )
 
 type Server struct {
-	cfg      *config.Config
-	store    *node.Store
-	imageURL string
-	logger   *slog.Logger
-	srv      *http.Server
+	cfg       *config.Config
+	store     *node.Store
+	imageURL  string
+	imageHash string // sha256 hex of cfg.Deploy.Image
+	logger    *slog.Logger
+	srv       *http.Server
 }
 
-func New(cfg *config.Config, store *node.Store, imageURL string, logger *slog.Logger) *Server {
+func New(cfg *config.Config, store *node.Store, imageURL, imageHashSHA256 string, logger *slog.Logger) *Server {
 	return &Server{
-		cfg:      cfg,
-		store:    store,
-		imageURL: imageURL,
-		logger:   logger.With("component", "ironic"),
+		cfg:       cfg,
+		store:     store,
+		imageURL:  imageURL,
+		imageHash: imageHashSHA256,
+		logger:    logger.With("component", "ironic"),
 	}
 }
 
@@ -124,7 +126,7 @@ func (s *Server) handleLookup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) instanceInfo(nodeUUID string) map[string]any {
-	return map[string]any{
+	info := map[string]any{
 		"id":                 fmt.Sprintf("img-%s", nodeUUID[:8]),
 		"urls":               []string{s.imageURL},
 		"image_type":         s.cfg.Deploy.ImageType,
@@ -136,6 +138,13 @@ func (s *Server) instanceInfo(nodeUUID string) map[string]any {
 		"ephemeral_mb":       0,
 		"ephemeral_format":   "ext4",
 	}
+	// IPA's standby.prepare_image strictly requires either a legacy
+	// `checksum` field or the `os_hash_algo` + `os_hash_value` pair.
+	if s.imageHash != "" {
+		info["os_hash_algo"] = "sha256"
+		info["os_hash_value"] = s.imageHash
+	}
+	return info
 }
 
 func (s *Server) handleHeartbeat(w http.ResponseWriter, r *http.Request) {
