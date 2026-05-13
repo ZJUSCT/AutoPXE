@@ -1,0 +1,10 @@
+#!ipxe
+
+echo === autopxe: starting deployment ===
+echo Kernel:    {{.KernelURL}}
+echo Initramfs: {{.InitramfsURL}}
+echo IPA API:   {{.IronicURL}}
+
+kernel {{.KernelURL}} initrd=ipa.initramfs ipa-api-url={{.IronicURL}} ipa-insecure=1 ip=dhcp console=tty0 console=ttyS0,115200 systemd.journald.forward_to_console=yes
+initrd {{.InitramfsURL}}
+boot

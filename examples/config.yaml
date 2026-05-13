@@ -1,0 +1,41 @@
+listen:
+  interface: br-test
+  ip: 192.168.100.1
+  dhcp_port: 67
+  tftp_port: 69
+  http_port: 80
+  ironic_port: 6385
+
+dhcp:
+  subnet: 192.168.100.0/24
+  gateway: 192.168.100.1
+  dns: [8.8.8.8, 1.1.1.1]
+  lease_time: 12h
+  pool:
+    start: 192.168.100.100
+    end: 192.168.100.200
+  static:
+    - mac: aa:bb:cc:dd:ee:01
+      ip: 192.168.100.10
+      hostname: node-01
+    - mac: aa:bb:cc:dd:ee:02
+      ip: 192.168.100.11
+      hostname: node-02
+
+ipa:
+  kernel: /var/lib/autopxe/ipa.kernel
+  initramfs: /var/lib/autopxe/ipa.initramfs
+  download:
+    base_uri: https://tarballs.opendev.org/openstack/ironic-python-agent/dib
+    flavor: centos9
+    branch: master
+    cache_dir: /var/lib/autopxe/cache
+
+deploy:
+  image: /var/lib/autopxe/images/cluster-rootfs.qcow2
+  image_type: partition
+  disk_format: qcow2
+  root_mb: 51200
+
+ironic:
+  heartbeat_timeout: 300
