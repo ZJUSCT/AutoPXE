@@ -15,23 +15,33 @@ import (
 )
 
 type Server struct {
-	cfg       *config.Config
-	store     *node.Store
-	tracker   *state.Tracker
-	imageURL  string
-	imageHash string // sha256 hex of cfg.Deploy.Image
-	logger    *slog.Logger
-	srv       *http.Server
+	cfg            *config.Config
+	store          *node.Store
+	tracker        *state.Tracker
+	imageURL       string
+	imageHash      string // sha256 hex of cfg.Deploy.Image
+	hostnames      map[string]string
+	configDriveCfg config.ConfigDrive
+	logger         *slog.Logger
+	srv            *http.Server
 }
 
 func New(cfg *config.Config, store *node.Store, tracker *state.Tracker, imageURL, imageHashSHA256 string, logger *slog.Logger) *Server {
+	hostnames := make(map[string]string, len(cfg.DHCP.Static))
+	for _, s := range cfg.DHCP.Static {
+		if s.MAC != "" && s.Hostname != "" {
+			hostnames[s.MAC] = s.Hostname
+		}
+	}
 	return &Server{
-		cfg:       cfg,
-		store:     store,
-		tracker:   tracker,
-		imageURL:  imageURL,
-		imageHash: imageHashSHA256,
-		logger:    logger.With("component", "ironic"),
+		cfg:            cfg,
+		store:          store,
+		tracker:        tracker,
+		imageURL:       imageURL,
+		imageHash:      imageHashSHA256,
+		hostnames:      hostnames,
+		configDriveCfg: cfg.ConfigDrive,
+		logger:         logger.With("component", "ironic"),
 	}
 }
 
@@ -100,7 +110,7 @@ func (s *Server) handleLookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	n, created := s.store.GetOrCreate(macs)
+	n, created := s.store.GetOrCreate(macs, s.hostnames)
 	if n == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "could not register node"})
 		return

@@ -11,12 +11,13 @@ import (
 )
 
 type Config struct {
-	Listen    Listen `yaml:"listen"`
-	DHCP      DHCP   `yaml:"dhcp"`
-	IPA       IPA    `yaml:"ipa"`
-	Deploy    Deploy `yaml:"deploy"`
-	Ironic    Ironic `yaml:"ironic"`
-	StateFile string `yaml:"state_file"`
+	Listen      Listen      `yaml:"listen"`
+	DHCP        DHCP        `yaml:"dhcp"`
+	IPA         IPA         `yaml:"ipa"`
+	Deploy      Deploy      `yaml:"deploy"`
+	Ironic      Ironic      `yaml:"ironic"`
+	StateFile   string      `yaml:"state_file"`
+	ConfigDrive ConfigDrive `yaml:"config_drive"`
 }
 
 type Listen struct {
@@ -88,6 +89,12 @@ type Deploy struct {
 
 type Ironic struct {
 	HeartbeatTimeout int `yaml:"heartbeat_timeout"`
+}
+
+type ConfigDrive struct {
+	UserData    string            `yaml:"user_data"`
+	MetaData    map[string]string `yaml:"meta_data"`
+	NetworkData string            `yaml:"network_data"`
 }
 
 func Load(path string) (*Config, error) {

@@ -45,3 +45,15 @@ ironic:
 # (DHCP returns an IP but no boot file). Use `-forget <MAC>`,
 # `-forget-all`, or `-list-deployed` to manage this file.
 state_file: /var/lib/autopxe/state.json
+
+config_drive:
+  user_data: |
+    #cloud-config
+    user:
+      name: root
+      lock_passwd: false
+    ssh_pwauth: true
+    disable_root: false
+    apt:
+      preserve_sources_list: true
+    prefer_fqdn_over_hostname: true

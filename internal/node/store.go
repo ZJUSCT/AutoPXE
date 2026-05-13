@@ -48,8 +48,8 @@ func (s *Store) FindByMACs(macs []string) *Node {
 // GetOrCreate finds a node matching any of the given MACs, otherwise creates
 // one indexed by all of them. The boot NIC convention is that macs[0] is
 // preferred for new node UUIDs but every MAC is indexed so future lookups via
-// any NIC find the same node.
-func (s *Store) GetOrCreate(macs []string) (*Node, bool) {
+// any NIC find the same node. hostnames maps MAC to user-assigned hostname.
+func (s *Store) GetOrCreate(macs []string, hostnames map[string]string) (*Node, bool) {
 	canon := make([]string, 0, len(macs))
 	for _, m := range macs {
 		c := canonMAC(m)
@@ -68,7 +68,7 @@ func (s *Store) GetOrCreate(macs []string) (*Node, bool) {
 			return s.nodes[uuid], false
 		}
 	}
-	n := New(canon)
+	n := New(canon, hostnameForMACs(canon, hostnames))
 	s.nodes[n.UUID] = n
 	for _, m := range canon {
 		s.macIndex[m] = n.UUID
@@ -82,4 +82,13 @@ func (s *Store) Each(fn func(*Node)) {
 	for _, n := range s.nodes {
 		fn(n)
 	}
+}
+
+func hostnameForMACs(macs []string, hostnames map[string]string) string {
+	for _, m := range macs {
+		if h, ok := hostnames[m]; ok {
+			return h
+		}
+	}
+	return ""
 }

@@ -22,6 +22,7 @@ type Node struct {
 	UUID       string
 	MACs       []string
 	AgentToken string
+	Hostname   string
 
 	mu            sync.Mutex
 	state         State
@@ -61,11 +62,12 @@ func newAgentToken() string {
 	return hex.EncodeToString(b)
 }
 
-func New(macs []string) *Node {
+func New(macs []string, hostname string) *Node {
 	return &Node{
 		UUID:       newUUID(),
 		MACs:       macs,
 		AgentToken: newAgentToken(),
+		Hostname:   hostname,
 		state:      StateNew,
 	}
 }
