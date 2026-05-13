@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"autopxe/internal/configdrive"
 	"autopxe/internal/ironic/ipa"
 	"autopxe/internal/node"
 )
@@ -32,7 +33,22 @@ func (s *Server) driveDeploy(n *node.Node) {
 	// 1. prepare_image (image_info already carries os_hash_algo + os_hash_value)
 	imageInfo := s.instanceInfo(n.UUID)
 
-	resp, err := client.SendCommand(ctx, "standby.prepare_image", map[string]any{"image_info": imageInfo})
+	driveStr, err := configdrive.Generate(n.UUID, n.Hostname,
+		s.configDriveCfg.UserData,
+		s.configDriveCfg.MetaData,
+		s.configDriveCfg.NetworkData,
+	)
+	if err != nil {
+		s.logger.Error("configdrive generation failed", "uuid", n.UUID, "err", err.Error())
+		// config drive failure is not fatal — deploy without it
+	}
+
+	params := map[string]any{"image_info": imageInfo}
+	if driveStr != "" {
+		params["configdrive"] = driveStr
+	}
+
+	resp, err := client.SendCommand(ctx, "standby.prepare_image", params)
 	if err != nil {
 		s.logger.Error("prepare_image dispatch failed", "uuid", n.UUID, "err", err.Error())
 		n.ForceState(node.StateFailed)
