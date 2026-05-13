@@ -18,6 +18,7 @@ import (
 	"github.com/ZJUSCT/AutoPXE/internal/assets"
 	"github.com/ZJUSCT/AutoPXE/internal/config"
 	"github.com/ZJUSCT/AutoPXE/internal/dhcp"
+	autopxedns "github.com/ZJUSCT/AutoPXE/internal/dns"
 	"github.com/ZJUSCT/AutoPXE/internal/httpsrv"
 	"github.com/ZJUSCT/AutoPXE/internal/ipadl"
 	"github.com/ZJUSCT/AutoPXE/internal/ironic"
@@ -84,12 +85,14 @@ func main() {
 	tftpServer := tftp.New(cfg, assets.IPXE(), logger)
 	dhcpServer := dhcp.New(cfg, leaser, tracker, logger)
 	ironicServer := ironic.New(cfg, store, tracker, httpServer.ImageURL(), imageHash, logger)
+	dnsServer := autopxedns.New(cfg, leaser, tracker, logger)
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return httpServer.Run(gctx) })
 	g.Go(func() error { return tftpServer.Run(gctx) })
 	g.Go(func() error { return dhcpServer.Run(gctx) })
 	g.Go(func() error { return ironicServer.Run(gctx) })
+	g.Go(func() error { return dnsServer.Run(gctx) })
 
 	if err := g.Wait(); err != nil && err != context.Canceled {
 		logger.Error("server group exited", "err", err.Error())

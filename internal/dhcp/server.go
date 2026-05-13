@@ -116,6 +116,12 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 	if leaseEntry.Hostname != "" {
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptHostName(leaseEntry.Hostname)))
 	}
+	if s.cfg.DHCP.DomainName != "" {
+		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptDomainName(s.cfg.DHCP.DomainName)))
+	}
+	if len(s.cfg.DHCP.SearchDomains) > 0 {
+		mods = append(mods, dhcpv4.WithDomainSearchList(s.cfg.DHCP.SearchDomains...))
+	}
 
 	// Always advertise option 60 = "PXEClient" on replies to any client that
 	// announced a PXE architecture (option 93). Many BIOS / UEFI PXE ROMs

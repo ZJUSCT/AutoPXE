@@ -13,6 +13,7 @@ import (
 type Config struct {
 	Listen      Listen      `yaml:"listen"`
 	DHCP        DHCP        `yaml:"dhcp"`
+	DNS         DNS         `yaml:"dns"`
 	IPA         IPA         `yaml:"ipa"`
 	Deploy      Deploy      `yaml:"deploy"`
 	Ironic      Ironic      `yaml:"ironic"`
@@ -32,17 +33,19 @@ type Listen struct {
 }
 
 type DHCP struct {
-	Subnet    string   `yaml:"subnet"`
-	Gateway   string   `yaml:"gateway"`
-	DNS       []string `yaml:"dns"`
-	LeaseTime string   `yaml:"lease_time"`
-	Pool      Pool     `yaml:"pool"`
-	Static    []Static `yaml:"static"`
+	Subnet        string   `yaml:"subnet"`
+	Gateway       string   `yaml:"gateway"`
+	DNS           []string `yaml:"dns"`
+	LeaseTime     string   `yaml:"lease_time"`
+	Pool          Pool     `yaml:"pool"`
+	Static        []Static `yaml:"static"`
+	DomainName    string   `yaml:"domain_name,omitempty"`    // option 15: primary client domain
+	SearchDomains []string `yaml:"search_domains,omitempty"` // option 119: domain search list
 
-	ParsedSubnet  *net.IPNet      `yaml:"-"`
-	ParsedGateway net.IP          `yaml:"-"`
-	ParsedDNS     []net.IP        `yaml:"-"`
-	ParsedLease   time.Duration   `yaml:"-"`
+	ParsedSubnet  *net.IPNet    `yaml:"-"`
+	ParsedGateway net.IP        `yaml:"-"`
+	ParsedDNS     []net.IP      `yaml:"-"`
+	ParsedLease   time.Duration `yaml:"-"`
 }
 
 type Pool struct {
@@ -95,6 +98,29 @@ type ConfigDrive struct {
 	UserData    string            `yaml:"user_data"`
 	MetaData    map[string]string `yaml:"meta_data"`
 	NetworkData string            `yaml:"network_data"`
+}
+
+type DNS struct {
+	Enabled          bool        `yaml:"enabled"`
+	Listen           string      `yaml:"listen,omitempty"` // host:port; defaults to listen.ip:53
+	Domain           string      `yaml:"domain,omitempty"` // appended to bare hostnames (e.g. "cluster.local")
+	Upstream         []string    `yaml:"upstream,omitempty"`
+	Wildcards        []Wildcard  `yaml:"wildcards,omitempty"`
+	Static           []DNSStatic `yaml:"static,omitempty"`
+	RegisterDeployed *bool       `yaml:"register_deployed,omitempty"` // default true
+	TTL              uint32      `yaml:"ttl,omitempty"`               // for local records
+}
+
+type Wildcard struct {
+	Suffix   string   `yaml:"suffix"`
+	Upstream []string `yaml:"upstream"`
+}
+
+type DNSStatic struct {
+	Name string `yaml:"name"`
+	IP   string `yaml:"ip"`
+
+	ParsedIP net.IP `yaml:"-"`
 }
 
 func Load(path string) (*Config, error) {
@@ -160,6 +186,31 @@ func (c *Config) applyDefaults() error {
 	}
 	if c.IPA.Download.CacheDir == "" {
 		c.IPA.Download.CacheDir = "/var/lib/autopxe/cache"
+	}
+	if c.DNS.Enabled {
+		if c.DNS.Listen == "" {
+			c.DNS.Listen = fmt.Sprintf("%s:53", c.Listen.IP)
+		}
+		if c.DNS.RegisterDeployed == nil {
+			t := true
+			c.DNS.RegisterDeployed = &t
+		}
+		if c.DNS.TTL == 0 {
+			c.DNS.TTL = 60
+		}
+	}
+
+	// If DNS has a configured domain, fall back to it for DHCP option 15 +
+	// option 119 so clients don't need duplicate configuration. Explicit
+	// dhcp.domain_name / dhcp.search_domains override.
+	if c.DNS.Domain != "" {
+		domain := strings.Trim(c.DNS.Domain, ".")
+		if c.DHCP.DomainName == "" {
+			c.DHCP.DomainName = domain
+		}
+		if len(c.DHCP.SearchDomains) == 0 {
+			c.DHCP.SearchDomains = []string{domain}
+		}
 	}
 	return nil
 }
@@ -244,6 +295,28 @@ func (c *Config) validate() error {
 	}
 	if c.IPA.Kernel == "" || c.IPA.Initramfs == "" {
 		return fmt.Errorf("ipa.kernel and ipa.initramfs required")
+	}
+
+	if c.DNS.Enabled {
+		for i := range c.DNS.Static {
+			st := &c.DNS.Static[i]
+			if st.Name == "" {
+				return fmt.Errorf("dns.static[%d].name required", i)
+			}
+			ip := net.ParseIP(st.IP)
+			if ip == nil {
+				return fmt.Errorf("dns.static[%d].ip invalid: %q", i, st.IP)
+			}
+			st.ParsedIP = ip
+		}
+		for i, w := range c.DNS.Wildcards {
+			if w.Suffix == "" {
+				return fmt.Errorf("dns.wildcards[%d].suffix required", i)
+			}
+			if len(w.Upstream) == 0 {
+				return fmt.Errorf("dns.wildcards[%d].upstream required", i)
+			}
+		}
 	}
 	return nil
 }

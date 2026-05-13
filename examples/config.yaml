@@ -11,6 +11,10 @@ dhcp:
   gateway: 192.168.100.1
   dns: [8.8.8.8, 1.1.1.1]
   lease_time: 12h
+  # domain_name (option 15) and search_domains (option 119) are auto-derived
+  # from dns.domain when DNS is enabled; uncomment to override.
+  # domain_name: cluster.local
+  # search_domains: [cluster.local, corp.local]
   pool:
     start: 192.168.100.100
     end: 192.168.100.200
@@ -21,6 +25,24 @@ dhcp:
     - mac: aa:bb:cc:dd:ee:02
       ip: 192.168.100.11
       hostname: node-02
+
+dns:
+  enabled: true                    # opt-in; binds to listen.ip:53 by default
+  # listen: 192.168.100.1:53       # override host:port if needed
+  domain: cluster.local            # appended to bare hostnames (e.g. node-01 → node-01.cluster.local)
+  upstream:                        # default forwarder for unmatched queries
+    - 8.8.8.8:53
+    - 1.1.1.1
+  wildcards:                       # per-suffix forwarders, longest match wins
+    - suffix: corp.local
+      upstream: [10.0.0.1:53]
+    - suffix: lan
+      upstream: [192.168.1.1]
+  static:                          # always-resolve fixed records
+    - { name: gateway,   ip: 192.168.100.1 }
+    - { name: registry,  ip: 192.168.100.20 }
+  register_deployed: true          # auto-resolve dhcp.static[].hostname for deployed nodes
+  ttl: 60                          # TTL (seconds) on locally-served records
 
 ipa:
   kernel: /var/lib/autopxe/ipa.kernel
