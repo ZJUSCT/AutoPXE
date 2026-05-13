@@ -15,16 +15,16 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"autopxe/internal/assets"
-	"autopxe/internal/config"
-	"autopxe/internal/dhcp"
-	"autopxe/internal/httpsrv"
-	"autopxe/internal/ipadl"
-	"autopxe/internal/ironic"
-	"autopxe/internal/lease"
-	"autopxe/internal/node"
-	"autopxe/internal/state"
-	"autopxe/internal/tftp"
+	"github.com/ZJUSCT/AutoPXE/internal/assets"
+	"github.com/ZJUSCT/AutoPXE/internal/config"
+	"github.com/ZJUSCT/AutoPXE/internal/dhcp"
+	"github.com/ZJUSCT/AutoPXE/internal/httpsrv"
+	"github.com/ZJUSCT/AutoPXE/internal/ipadl"
+	"github.com/ZJUSCT/AutoPXE/internal/ironic"
+	"github.com/ZJUSCT/AutoPXE/internal/lease"
+	"github.com/ZJUSCT/AutoPXE/internal/node"
+	"github.com/ZJUSCT/AutoPXE/internal/state"
+	"github.com/ZJUSCT/AutoPXE/internal/tftp"
 )
 
 func main() {

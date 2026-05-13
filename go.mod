@@ -1,4 +1,4 @@
-module autopxe
+module github.com/ZJUSCT/AutoPXE
 
 go 1.24.4
 

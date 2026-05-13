@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"autopxe/internal/config"
+	"github.com/ZJUSCT/AutoPXE/internal/config"
 )
 
 type Lease struct {

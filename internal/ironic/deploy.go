@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"autopxe/internal/configdrive"
-	"autopxe/internal/ironic/ipa"
-	"autopxe/internal/node"
+	"github.com/ZJUSCT/AutoPXE/internal/configdrive"
+	"github.com/ZJUSCT/AutoPXE/internal/ironic/ipa"
+	"github.com/ZJUSCT/AutoPXE/internal/node"
 )
 
 // driveDeploy is the single per-node deploy driver. It runs as a goroutine

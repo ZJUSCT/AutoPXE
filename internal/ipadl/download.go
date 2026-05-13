@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"autopxe/internal/config"
+	"github.com/ZJUSCT/AutoPXE/internal/config"
 )
 
 // EnsureArtifacts makes sure the IPA kernel and initramfs exist at the paths

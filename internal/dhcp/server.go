@@ -10,10 +10,10 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
 
-	"autopxe/internal/config"
-	"autopxe/internal/lease"
-	"autopxe/internal/pxe"
-	"autopxe/internal/state"
+	"github.com/ZJUSCT/AutoPXE/internal/config"
+	"github.com/ZJUSCT/AutoPXE/internal/lease"
+	"github.com/ZJUSCT/AutoPXE/internal/pxe"
+	"github.com/ZJUSCT/AutoPXE/internal/state"
 )
 
 type Server struct {

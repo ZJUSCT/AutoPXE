@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"autopxe/internal/config"
-	"autopxe/internal/node"
-	"autopxe/internal/state"
+	"github.com/ZJUSCT/AutoPXE/internal/config"
+	"github.com/ZJUSCT/AutoPXE/internal/node"
+	"github.com/ZJUSCT/AutoPXE/internal/state"
 )
 
 type Server struct {

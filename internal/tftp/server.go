@@ -12,7 +12,7 @@ import (
 
 	pintftp "github.com/pin/tftp/v3"
 
-	"autopxe/internal/config"
+	"github.com/ZJUSCT/AutoPXE/internal/config"
 )
 
 type Server struct {

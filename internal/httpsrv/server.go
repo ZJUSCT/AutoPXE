@@ -10,8 +10,8 @@ import (
 	"text/template"
 	"time"
 
-	"autopxe/internal/assets"
-	"autopxe/internal/config"
+	"github.com/ZJUSCT/AutoPXE/internal/assets"
+	"github.com/ZJUSCT/AutoPXE/internal/config"
 )
 
 type Server struct {
