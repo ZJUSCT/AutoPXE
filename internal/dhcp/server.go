@@ -104,10 +104,13 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptHostName(leaseEntry.Hostname)))
 	}
 
-	// Echo the PXEClient vendor-class identifier on PXE replies. Many BIOS
-	// PXE ROMs reject an OFFER that doesn't carry option 60 = "PXEClient"
-	// when their request had it.
-	if vc := req.ClassIdentifier(); strings.HasPrefix(vc, "PXEClient") {
+	// Always advertise option 60 = "PXEClient" on replies to any client that
+	// announced a PXE architecture (option 93). Many BIOS / UEFI PXE ROMs
+	// drop OFFERs that lack this marker even when every other PXE field is
+	// correct (the IP stack happily accepts the lease, but the PXE stack
+	// reports "no offer received"). Also needed for clients that omit option
+	// 60 in their request or send a non-"PXEClient" vendor-class.
+	if arch != pxe.ArchUnknown {
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptClassIdentifier("PXEClient")))
 	}
 
