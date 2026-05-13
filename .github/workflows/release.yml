@@ -12,16 +12,32 @@ jobs:
   build-ipxe:
     name: Build iPXE binaries
     runs-on: ubuntu-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build iPXE via Docker
+      # Restore ccache for the iPXE C build. The Dockerfile installs ccache
+      # and build-ipxe.sh shims it onto PATH when USE_CCACHE=1.
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-ipxe-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-ipxe-${{ runner.os }}-
+
+      - name: Build iPXE via Docker (with ccache)
         run: |
+          mkdir -p internal/assets/ipxe "$CCACHE_DIR"
           docker build -t autopxe-ipxe-builder docker/ipxe-builder
-          mkdir -p internal/assets/ipxe
           docker run --rm \
             -v "$PWD/internal/assets/ipxe":/output \
+            -v "$CCACHE_DIR":/ccache \
+            -e CCACHE_DIR=/ccache \
+            -e USE_CCACHE=1 \
             autopxe-ipxe-builder
+          du -sh "$CCACHE_DIR" || true
           ls -la internal/assets/ipxe
 
       - name: Verify iPXE artifacts
@@ -56,6 +72,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # setup-go@v5 with cache:true automatically restores/saves the Go
+      # module cache ($GOMODCACHE) and build cache ($GOCACHE), keyed on
+      # go.sum + the resolved Go version. No extra action needed.
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
