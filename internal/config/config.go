@@ -11,11 +11,12 @@ import (
 )
 
 type Config struct {
-	Listen Listen `yaml:"listen"`
-	DHCP   DHCP   `yaml:"dhcp"`
-	IPA    IPA    `yaml:"ipa"`
-	Deploy Deploy `yaml:"deploy"`
-	Ironic Ironic `yaml:"ironic"`
+	Listen    Listen `yaml:"listen"`
+	DHCP      DHCP   `yaml:"dhcp"`
+	IPA       IPA    `yaml:"ipa"`
+	Deploy    Deploy `yaml:"deploy"`
+	Ironic    Ironic `yaml:"ironic"`
+	StateFile string `yaml:"state_file"`
 }
 
 type Listen struct {
@@ -137,6 +138,9 @@ func (c *Config) applyDefaults() error {
 	}
 	if c.Ironic.HeartbeatTimeout == 0 {
 		c.Ironic.HeartbeatTimeout = 300
+	}
+	if c.StateFile == "" {
+		c.StateFile = "/var/lib/autopxe/state.json"
 	}
 	if c.IPA.Download.BaseURI == "" {
 		c.IPA.Download.BaseURI = "https://tarballs.opendev.org/openstack/ironic-python-agent/dib"
