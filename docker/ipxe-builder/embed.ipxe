@@ -1,8 +1,8 @@
 #!ipxe
 prompt --key 0x02 --timeout 3000 Press Ctrl-B for the iPXE command line... && shell ||
 dhcp
-echo iPXE chainloading to http://192.168.100.1/boot.ipxe
-chain http://192.168.100.1/boot.ipxe || goto failed
+echo iPXE chainloading boot.ipxe from ${next-server}
+chain http://${next-server}/boot.ipxe?mac=${mac:hexhyp} || goto failed
 echo Chainload succeeded
 
 :failed

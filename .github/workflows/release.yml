@@ -1,0 +1,126 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-ipxe:
+    name: Build iPXE binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build iPXE via Docker
+        run: |
+          docker build -t autopxe-ipxe-builder docker/ipxe-builder
+          mkdir -p internal/assets/ipxe
+          docker run --rm \
+            -v "$PWD/internal/assets/ipxe":/output \
+            autopxe-ipxe-builder
+          ls -la internal/assets/ipxe
+
+      - name: Verify iPXE artifacts
+        run: |
+          test -s internal/assets/ipxe/undionly.kpxe
+          test -s internal/assets/ipxe/snponly.efi
+
+      - name: Upload iPXE artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipxe
+          path: |
+            internal/assets/ipxe/undionly.kpxe
+            internal/assets/ipxe/snponly.efi
+          if-no-files-found: error
+          retention-days: 1
+
+  build-binary:
+    name: Build autopxe (${{ matrix.goos }}-${{ matrix.goarch }})
+    needs: build-ipxe
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download iPXE artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ipxe
+          path: internal/assets/ipxe
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p dist
+          OUT="dist/autopxe-${GOOS}-${GOARCH}"
+          go build -trimpath -ldflags="-s -w" -o "$OUT" ./cmd/autopxe
+          file "$OUT"
+          ls -la "$OUT"
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: autopxe-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/autopxe-${{ matrix.goos }}-${{ matrix.goarch }}
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Publish GitHub Release
+    needs:
+      - build-ipxe
+      - build-binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Stage release files
+        run: |
+          mkdir -p release
+          cp artifacts/ipxe/undionly.kpxe                            release/
+          cp artifacts/ipxe/snponly.efi                              release/
+          cp artifacts/autopxe-linux-amd64/autopxe-linux-amd64       release/
+          cp artifacts/autopxe-linux-arm64/autopxe-linux-arm64       release/
+          cp artifacts/autopxe-darwin-arm64/autopxe-darwin-arm64     release/
+          chmod +x release/autopxe-*
+          (cd release && sha256sum * > SHA256SUMS)
+          ls -la release
+          cat release/SHA256SUMS
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/undionly.kpxe
+            release/snponly.efi
+            release/autopxe-linux-amd64
+            release/autopxe-linux-arm64
+            release/autopxe-darwin-arm64
+            release/SHA256SUMS
+          generate_release_notes: true
+          fail_on_unmatched_files: true
