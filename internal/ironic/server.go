@@ -11,21 +11,24 @@ import (
 
 	"autopxe/internal/config"
 	"autopxe/internal/node"
+	"autopxe/internal/state"
 )
 
 type Server struct {
 	cfg       *config.Config
 	store     *node.Store
+	tracker   *state.Tracker
 	imageURL  string
 	imageHash string // sha256 hex of cfg.Deploy.Image
 	logger    *slog.Logger
 	srv       *http.Server
 }
 
-func New(cfg *config.Config, store *node.Store, imageURL, imageHashSHA256 string, logger *slog.Logger) *Server {
+func New(cfg *config.Config, store *node.Store, tracker *state.Tracker, imageURL, imageHashSHA256 string, logger *slog.Logger) *Server {
 	return &Server{
 		cfg:       cfg,
 		store:     store,
+		tracker:   tracker,
 		imageURL:  imageURL,
 		imageHash: imageHashSHA256,
 		logger:    logger.With("component", "ironic"),

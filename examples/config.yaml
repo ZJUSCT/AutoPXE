@@ -39,3 +39,9 @@ deploy:
 
 ironic:
   heartbeat_timeout: 300
+
+# Persistent state file. After a node deploys successfully, its MAC is
+# recorded here and subsequent PXE attempts from that MAC are suppressed
+# (DHCP returns an IP but no boot file). Use `-forget <MAC>`,
+# `-forget-all`, or `-list-deployed` to manage this file.
+state_file: /var/lib/autopxe/state.json

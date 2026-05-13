@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -22,12 +23,16 @@ import (
 	"autopxe/internal/ironic"
 	"autopxe/internal/lease"
 	"autopxe/internal/node"
+	"autopxe/internal/state"
 	"autopxe/internal/tftp"
 )
 
 func main() {
 	cfgPath := flag.String("config", "/etc/autopxe/config.yaml", "path to config file")
 	logLevel := flag.String("log-level", "info", "log level (debug, info, warn, error)")
+	forget := flag.String("forget", "", "remove a MAC from the deployed-state file then exit (no servers are started)")
+	forgetAll := flag.Bool("forget-all", false, "remove all entries from the deployed-state file then exit")
+	listDeployed := flag.Bool("list-deployed", false, "print the deployed-state file contents then exit")
 	flag.Parse()
 
 	logger := newLogger(*logLevel)
@@ -41,7 +46,18 @@ func main() {
 		"interface", cfg.Listen.Interface,
 		"ip", cfg.Listen.IP,
 		"static_bindings", len(cfg.DHCP.Static),
+		"state_file", cfg.StateFile,
 	)
+
+	tracker, err := state.New(cfg.StateFile)
+	if err != nil {
+		logger.Error("load state file", "path", cfg.StateFile, "err", err.Error())
+		os.Exit(1)
+	}
+
+	if handled := runMaintenance(tracker, *forget, *forgetAll, *listDeployed, logger); handled {
+		return
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -66,8 +82,8 @@ func main() {
 
 	httpServer := httpsrv.New(cfg, logger)
 	tftpServer := tftp.New(cfg, assets.IPXE(), logger)
-	dhcpServer := dhcp.New(cfg, leaser, logger)
-	ironicServer := ironic.New(cfg, store, httpServer.ImageURL(), imageHash, logger)
+	dhcpServer := dhcp.New(cfg, leaser, tracker, logger)
+	ironicServer := ironic.New(cfg, store, tracker, httpServer.ImageURL(), imageHash, logger)
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return httpServer.Run(gctx) })
@@ -127,6 +143,44 @@ func hashFileSHA256(ctx context.Context, path string, logger *slog.Logger) (stri
 		"elapsed", time.Since(start).String(),
 	)
 	return sum, nil
+}
+
+// runMaintenance handles the one-shot CLI maintenance flags. Returns true when
+// it serviced a flag and main should exit without starting servers.
+func runMaintenance(tracker *state.Tracker, forget string, forgetAll, listDeployed bool, logger *slog.Logger) bool {
+	switch {
+	case listDeployed:
+		records := tracker.Snapshot()
+		if len(records) == 0 {
+			fmt.Println("(no deployed records)")
+			return true
+		}
+		for mac, rec := range records {
+			fmt.Printf("%s  uuid=%s  at=%s  image_sha256=%s\n",
+				mac, rec.UUID, rec.DeployedAt.Format(time.RFC3339), rec.ImageHash)
+		}
+		return true
+	case forgetAll:
+		if err := tracker.ForgetAll(); err != nil {
+			logger.Error("forget-all", "err", err.Error())
+			os.Exit(1)
+		}
+		logger.Info("forget-all: cleared all deployed records")
+		return true
+	case forget != "":
+		removed, err := tracker.Forget(forget)
+		if err != nil {
+			logger.Error("forget", "mac", forget, "err", err.Error())
+			os.Exit(1)
+		}
+		if removed {
+			logger.Info("forget: removed deployed record", "mac", forget)
+		} else {
+			logger.Info("forget: mac not present", "mac", forget)
+		}
+		return true
+	}
+	return false
 }
 
 func newLogger(level string) *slog.Logger {

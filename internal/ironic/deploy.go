@@ -63,7 +63,17 @@ func (s *Server) driveDeploy(n *node.Node) {
 		return
 	}
 	n.ForceState(node.StateDone)
-	s.logger.Info("deploy complete", "uuid", n.UUID)
+
+	// Persist the deployment so a subsequent PXE attempt by any of this
+	// node's MACs is suppressed at the DHCP layer. Save errors are non-fatal
+	// (we just lose the in-memory record on next restart) but logged.
+	if s.tracker != nil {
+		if err := s.tracker.MarkDeployed(n.MACs, n.UUID, s.imageHash); err != nil {
+			s.logger.Error("persist deploy state", "uuid", n.UUID, "err", err.Error())
+		}
+	}
+
+	s.logger.Info("deploy complete", "uuid", n.UUID, "macs", n.MACs)
 }
 
 func (s *Server) pollUntilTerminal(ctx context.Context, n *node.Node, client *ipa.Client, cmdID string) bool {

@@ -13,20 +13,23 @@ import (
 	"autopxe/internal/config"
 	"autopxe/internal/lease"
 	"autopxe/internal/pxe"
+	"autopxe/internal/state"
 )
 
 type Server struct {
-	cfg    *config.Config
-	leaser *lease.Allocator
-	logger *slog.Logger
-	srv    *server4.Server
+	cfg     *config.Config
+	leaser  *lease.Allocator
+	tracker *state.Tracker
+	logger  *slog.Logger
+	srv     *server4.Server
 }
 
-func New(cfg *config.Config, leaser *lease.Allocator, logger *slog.Logger) *Server {
+func New(cfg *config.Config, leaser *lease.Allocator, tracker *state.Tracker, logger *slog.Logger) *Server {
 	return &Server{
-		cfg:    cfg,
-		leaser: leaser,
-		logger: logger.With("component", "dhcp"),
+		cfg:     cfg,
+		leaser:  leaser,
+		tracker: tracker,
+		logger:  logger.With("component", "dhcp"),
 	}
 }
 
@@ -82,6 +85,16 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 		return
 	}
 
+	// Already-deployed gate: if this MAC has a deployment record, treat the
+	// request as a plain (non-PXE) DHCP exchange — no PXE markers, no boot
+	// file. The firmware's PXE attempt will fail and the machine falls
+	// through to the next entry in its boot order (typically the local disk
+	// it was just deployed to).
+	deployed := s.tracker != nil && s.tracker.IsDeployed(mac)
+	if deployed {
+		s.logger.Info("mac already deployed; suppressing pxe", "mac", mac)
+	}
+
 	replyType := dhcpv4.MessageTypeOffer
 	if mt == dhcpv4.MessageTypeRequest {
 		replyType = dhcpv4.MessageTypeAck
@@ -110,7 +123,7 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 	// correct (the IP stack happily accepts the lease, but the PXE stack
 	// reports "no offer received"). Also needed for clients that omit option
 	// 60 in their request or send a non-"PXEClient" vendor-class.
-	if arch != pxe.ArchUnknown {
+	if arch != pxe.ArchUnknown && !deployed {
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptClassIdentifier("PXEClient")))
 
 		// Option 43 (Vendor-Specific Information) with PXE sub-option 6
@@ -142,6 +155,8 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 
 	bootURL, bootFile, ok := s.selectBoot(arch, isIPXE, mac)
 	switch {
+	case deployed:
+		// hand out the lease, no boot fields
 	case isIPXE && ok:
 		// iPXE re-DHCP: hand back an HTTP URL, no TFTP filename. iPXE will
 		// chainload `boot.ipxe` from this URL.
