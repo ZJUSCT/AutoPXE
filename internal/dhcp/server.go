@@ -112,6 +112,19 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 	// 60 in their request or send a non-"PXEClient" vendor-class.
 	if arch != pxe.ArchUnknown {
 		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptClassIdentifier("PXEClient")))
+
+		// Option 43 (Vendor-Specific Information) with PXE sub-option 6
+		// (PXE_DISCOVERY_CONTROL) = 8 tells the client "use the boot file
+		// from the BOOTP `file` field directly, do not perform broadcast or
+		// multicast PXE discovery". Many UEFI PXE ROMs request option 43
+		// (it appears in their Parameter-Request List) and silently reject
+		// the OFFER if it's missing, even when option 60, siaddr and option
+		// 67 are all correct. The trailing 0xff is the sub-option END
+		// marker per the PXE spec.
+		mods = append(mods, dhcpv4.WithGeneric(
+			dhcpv4.OptionVendorSpecificInformation,
+			[]byte{0x06, 0x01, 0x08, 0xff},
+		))
 	}
 
 	reply, err := dhcpv4.NewReplyFromRequest(req, mods...)
