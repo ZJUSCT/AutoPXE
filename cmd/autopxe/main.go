@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -47,6 +51,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	imageHash, err := hashFileSHA256(ctx, cfg.Deploy.Image, logger)
+	if err != nil {
+		logger.Error("hash deploy image", "path", cfg.Deploy.Image, "err", err.Error())
+		os.Exit(1)
+	}
+
 	leaser, err := lease.NewAllocator(cfg)
 	if err != nil {
 		logger.Error("lease allocator", "err", err.Error())
@@ -57,7 +67,7 @@ func main() {
 	httpServer := httpsrv.New(cfg, logger)
 	tftpServer := tftp.New(cfg, assets.IPXE(), logger)
 	dhcpServer := dhcp.New(cfg, leaser, logger)
-	ironicServer := ironic.New(cfg, store, httpServer.ImageURL(), logger)
+	ironicServer := ironic.New(cfg, store, httpServer.ImageURL(), imageHash, logger)
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return httpServer.Run(gctx) })
@@ -70,6 +80,53 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("autopxe shutdown complete")
+}
+
+// hashFileSHA256 streams a file through SHA-256 and returns the lowercase hex
+// digest. We compute this once at startup so every /v1/lookup and the
+// standby.prepare_image dispatch can include os_hash_algo + os_hash_value
+// (which IPA strictly requires when no legacy `checksum` is provided).
+// For a 1–2 GB qcow2 this takes a few seconds; for very large images it can
+// take a minute, but doing it eagerly means deploys can never race ahead of
+// the hash and any I/O error surfaces before any DHCP / TFTP traffic is
+// handed out.
+func hashFileSHA256(ctx context.Context, path string, logger *slog.Logger) (string, error) {
+	logger.Info("hashing deploy image", "path", path)
+	start := time.Now()
+
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	buf := make([]byte, 1<<20) // 1 MiB
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+		n, err := f.Read(buf)
+		if n > 0 {
+			h.Write(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	sum := hex.EncodeToString(h.Sum(nil))
+	logger.Info("deploy image hashed",
+		"path", path,
+		"sha256", sum,
+		"elapsed", time.Since(start).String(),
+	)
+	return sum, nil
 }
 
 func newLogger(level string) *slog.Logger {

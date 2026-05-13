@@ -29,10 +29,7 @@ func (s *Server) driveDeploy(n *node.Node) {
 
 	client := ipa.New(snap.CallbackURL, n.AgentToken)
 
-	// 1. prepare_image
-	// We deliberately omit os_hash_algo / os_hash_value so IPA skips hash
-	// verification entirely; combined with disable_deep_image_inspection in
-	// the lookup config this is the right behavior for a trusted local image.
+	// 1. prepare_image (image_info already carries os_hash_algo + os_hash_value)
 	imageInfo := s.instanceInfo(n.UUID)
 
 	resp, err := client.SendCommand(ctx, "standby.prepare_image", map[string]any{"image_info": imageInfo})
