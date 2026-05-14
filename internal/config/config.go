@@ -158,7 +158,7 @@ func (c *Config) applyDefaults() error {
 		c.DHCP.LeaseTime = "12h"
 	}
 	if c.Deploy.ImageType == "" {
-		c.Deploy.ImageType = "partition"
+		c.Deploy.ImageType = "whole"
 	}
 	if c.Deploy.DiskFormat == "" {
 		c.Deploy.DiskFormat = "qcow2"

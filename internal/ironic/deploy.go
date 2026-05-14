@@ -48,6 +48,10 @@ func (s *Server) driveDeploy(n *node.Node) {
 		params["configdrive"] = driveStr
 	}
 
+	s.logger.Info("dispatching prepare_image", "uuid", n.UUID,
+		"image_info", imageInfo,
+		"configdrive_len", len(driveStr),
+	)
 	resp, err := client.SendCommand(ctx, "standby.prepare_image", params)
 	if err != nil {
 		s.logger.Error("prepare_image dispatch failed", "uuid", n.UUID, "err", err.Error())
@@ -61,7 +65,7 @@ func (s *Server) driveDeploy(n *node.Node) {
 		return
 	}
 	n.SetCommandID(cmdID)
-	s.logger.Info("prepare_image dispatched", "uuid", n.UUID, "cmd", cmdID)
+	s.logger.Info("prepare_image dispatched", "uuid", n.UUID, "cmd", cmdID, "resp", resp)
 
 	// 2. poll
 	if !s.pollUntilTerminal(ctx, n, client, cmdID) {
