@@ -73,7 +73,26 @@ func (s *Server) handle(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) 
 	switch mt {
 	case dhcpv4.MessageTypeDiscover, dhcpv4.MessageTypeRequest:
 		// proceed
-	case dhcpv4.MessageTypeRelease, dhcpv4.MessageTypeDecline, dhcpv4.MessageTypeInform:
+	case dhcpv4.MessageTypeRelease:
+		if err := s.leaser.Release(mac, req.ClientIPAddr); err != nil {
+			s.logger.Warn("release failed", "mac", mac, "ip", req.ClientIPAddr.String(), "err", err.Error())
+		} else {
+			s.logger.Info("lease released", "mac", mac, "ip", req.ClientIPAddr.String())
+		}
+		return
+	case dhcpv4.MessageTypeDecline:
+		ip := requestedOrClientIP(req)
+		if ip == nil {
+			s.logger.Warn("decline without ip", "mac", mac)
+			return
+		}
+		if err := s.leaser.Decline(mac, ip); err != nil {
+			s.logger.Warn("decline failed", "mac", mac, "ip", ip.String(), "err", err.Error())
+		} else {
+			s.logger.Warn("lease declined; address marked occupied", "mac", mac, "ip", ip.String())
+		}
+		return
+	case dhcpv4.MessageTypeInform:
 		return
 	default:
 		return
@@ -203,4 +222,18 @@ func (s *Server) selectBoot(arch pxe.Arch, isIPXE bool, mac string) (bootURL, bo
 		return "", name, true
 	}
 	return "", "", false
+}
+
+func requestedOrClientIP(req *dhcpv4.DHCPv4) net.IP {
+	if ip := req.RequestedIPAddress(); ip != nil {
+		if ip4 := ip.To4(); ip4 != nil && !ip4.Equal(net.IPv4zero) {
+			return ip4
+		}
+	}
+	if ip := req.ClientIPAddr; ip != nil {
+		if ip4 := ip.To4(); ip4 != nil && !ip4.Equal(net.IPv4zero) {
+			return ip4
+		}
+	}
+	return nil
 }

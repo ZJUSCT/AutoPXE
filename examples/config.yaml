@@ -11,6 +11,10 @@ dhcp:
   gateway: 192.168.100.1
   dns: [8.8.8.8, 1.1.1.1]
   lease_time: 12h
+  # Dynamic DHCP leases and declined/conflict addresses are persisted here so
+  # autopxe does not re-issue occupied addresses after restart. Use
+  # `autopxe -config /etc/autopxe/config.yaml -clear-leases` to clear it.
+  lease_file: /var/lib/autopxe/leases.json
   # domain_name (option 15) and search_domains (option 119) are auto-derived
   # from dns.domain when DNS is enabled; uncomment to override.
   # domain_name: cluster.local

@@ -34,6 +34,7 @@ func main() {
 	forget := flag.String("forget", "", "remove a MAC from the deployed-state file then exit (no servers are started)")
 	forgetAll := flag.Bool("forget-all", false, "remove all entries from the deployed-state file then exit")
 	listDeployed := flag.Bool("list-deployed", false, "print the deployed-state file contents then exit")
+	clearLeases := flag.Bool("clear-leases", false, "remove all persisted dynamic DHCP leases and declined addresses then exit")
 	flag.Parse()
 
 	logger := newLogger(*logLevel)
@@ -47,8 +48,18 @@ func main() {
 		"interface", cfg.Listen.Interface,
 		"ip", cfg.Listen.IP,
 		"static_bindings", len(cfg.DHCP.Static),
+		"lease_file", cfg.DHCP.LeaseFile,
 		"state_file", cfg.StateFile,
 	)
+
+	if *clearLeases {
+		if err := lease.ClearLeaseFile(cfg.DHCP.LeaseFile); err != nil {
+			logger.Error("clear leases", "path", cfg.DHCP.LeaseFile, "err", err.Error())
+			os.Exit(1)
+		}
+		logger.Info("clear-leases: cleared persisted dynamic DHCP leases", "path", cfg.DHCP.LeaseFile)
+		return
+	}
 
 	tracker, err := state.New(cfg.StateFile)
 	if err != nil {

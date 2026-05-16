@@ -37,6 +37,7 @@ type DHCP struct {
 	Gateway       string   `yaml:"gateway"`
 	DNS           []string `yaml:"dns"`
 	LeaseTime     string   `yaml:"lease_time"`
+	LeaseFile     string   `yaml:"lease_file"`
 	Pool          Pool     `yaml:"pool"`
 	Static        []Static `yaml:"static"`
 	DomainName    string   `yaml:"domain_name,omitempty"`    // option 15: primary client domain
@@ -157,6 +158,9 @@ func (c *Config) applyDefaults() error {
 	if c.DHCP.LeaseTime == "" {
 		c.DHCP.LeaseTime = "12h"
 	}
+	if c.DHCP.LeaseFile == "" {
+		c.DHCP.LeaseFile = "/var/lib/autopxe/leases.json"
+	}
 	if c.Deploy.ImageType == "" {
 		c.Deploy.ImageType = "whole"
 	}
@@ -248,6 +252,9 @@ func (c *Config) validate() error {
 	dur, err := time.ParseDuration(c.DHCP.LeaseTime)
 	if err != nil {
 		return fmt.Errorf("dhcp.lease_time invalid: %w", err)
+	}
+	if dur <= 0 {
+		return fmt.Errorf("dhcp.lease_time must be positive")
 	}
 	c.DHCP.ParsedLease = dur
 
